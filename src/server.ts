@@ -1,8 +1,21 @@
 // import * as express from 'express';
 import App from './app';
-import PostController from './posts/posts.controller';
+import PostsController from './posts/posts.controller';
+import * as mongoose from 'mongoose';
+import 'dotenv/config';
+import validateEnv from './utils/validateEnv';
 
 
+/* const {
+    MONGO_USER, 
+    MONGO_PASSWORD, 
+    MONGO_PATH,
+} = process.env;
+*/
+validateEnv();
+
+
+//console.log(MONGO_PATH);
 
 /* function loggerMiddleware(req:express.Request, res:express.Response, next){
     console.log(`${req.method} ${req.path}`);
@@ -26,11 +39,11 @@ app.use('/api', router);
 
 app.listen(5000); */
 
+
 const app = new App(
     [
-        new PostController(),
-    ], 
-    5000,
+        new PostsController(),
+    ],    
 );
 app.listen();
 console.log("server listening.......");

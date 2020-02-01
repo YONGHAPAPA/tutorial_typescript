@@ -1,14 +1,15 @@
 import * as express from 'express';
 import * as bodyParser from 'body-parser';
+import * as mongoose from 'mongoose'
+import Controller from './interfaces/controller.interface';
 
 class App {
     public app: express.Application;
-    public port: number;
 
-    constructor(controller, port){
+    constructor(controllers: Controller[]){
         this.app = express();
-        this.port = port;
 
+        this.connecToTheDatabase();
         this.initializeMiddlewares();
         this.initializeControllers(controllers);
     }
@@ -18,14 +19,26 @@ class App {
     }
 
     private initializeControllers(controllers){
-        controllers.foreach((controller) => {
-            this.app.use('/', controller);
+        controllers.forEach((controller) => {
+             this.app.use('/', controller.router);
         })
     }
 
+    private connecToTheDatabase(){
+        const {
+            MONGO_USER, 
+            MONGO_PASSWORD, 
+            MONGO_PATH,
+        } = process.env;
+
+        //console.log(MONGO_USER + " : " + MONGO_USER);
+        mongoose.connect(process.env.MONGO_PATH);
+
+    }
+
     public listen(){
-        this.app.listen(this.port, ()=>{
-            console.log(`App listening on the port ${this.port}`);
+        this.app.listen(process.env.PORT, ()=>{
+            console.log(`App listening on the port ${process.env.PORT}`);
         });
     }
 }
