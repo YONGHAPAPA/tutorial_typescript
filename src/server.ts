@@ -5,15 +5,7 @@ import * as mongoose from 'mongoose';
 import 'dotenv/config';
 import validateEnv from './utils/validateEnv';
 
-
-/* const {
-    MONGO_USER, 
-    MONGO_PASSWORD, 
-    MONGO_PATH,
-} = process.env;
-*/
 validateEnv();
-
 
 //console.log(MONGO_PATH);
 
@@ -46,4 +38,3 @@ const app = new App(
     ],    
 );
 app.listen();
-console.log("server listening.......");

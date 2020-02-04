@@ -2,6 +2,9 @@ import * as express from 'express';
 import * as bodyParser from 'body-parser';
 import * as mongoose from 'mongoose'
 import Controller from './interfaces/controller.interface';
+import errorMiddleware from './middleware/error.middleware';
+
+import testMiddle from './middleware/testMiddle';
 
 class App {
     public app: express.Application;
@@ -12,6 +15,9 @@ class App {
         this.connecToTheDatabase();
         this.initializeMiddlewares();
         this.initializeControllers(controllers);
+
+        //this.testMiddle();
+        this.initializeErrorHandling();
     }
 
     private initializeMiddlewares(){
@@ -24,6 +30,14 @@ class App {
         })
     }
 
+    private initializeErrorHandling(){
+        this.app.use(errorMiddleware);
+    }
+
+    private testMiddle(){
+        this.app.use(testMiddle);
+    }
+
     private connecToTheDatabase(){
         const {
             MONGO_USER, 
@@ -31,9 +45,7 @@ class App {
             MONGO_PATH,
         } = process.env;
 
-        //console.log(MONGO_USER + " : " + MONGO_USER);
         mongoose.connect(process.env.MONGO_PATH);
-
     }
 
     public listen(){
