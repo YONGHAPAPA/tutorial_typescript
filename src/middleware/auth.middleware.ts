@@ -4,7 +4,7 @@ import AuthenticationTokenMissingException from '../exceptions/AuthenticationTok
 import DataStoredinToken from '../interfaces/dataStoredInToken';
 import RequestWithUser from '../interfaces/requestWithUser.interface'
 import userModel from '../users/user.model';
-import WrongCredentialsException from 'exceptions/WrongCredentialsException';
+import WrongCredentialsException from '../exceptions/WrongCredentialsException';
 import DataStoredInToken from '../interfaces/dataStoredInToken';
 
 async function authMiddleware(req: RequestWithUser, res: Response, next: NextFunction){

@@ -3,9 +3,10 @@ import Post from './posts.interface';
 import postModel from './posts.model';
 import HttpException from '../exceptions/HttpException';
 import PostNotFoundException from '../exceptions/PostNotFoundException';
-
 import validationMiddleware from '../middleware/validation.middleware';
+import authMiddleware from '../middleware/auth.middleware';
 import CreatePostDto from './post.dto';
+import RequestWithUser from 'interfaces/requestWithUser.interface';
 
 
 class PostsController {
@@ -20,11 +21,15 @@ class PostsController {
     public initializeRoutes(){
         this.router.get(this.path, this.getAllPosts);
         this.router.get(`${this.path}/:id`, this.getPostById);
-        //this.router.put(`${this.path}/:id`, this.modifyPost);
-        this.router.patch(`${this.path}/:id`, validationMiddleware(CreatePostDto, true), this.modifyPost);
-        this.router.delete(`${this.path}/:id`, this.deletePost);
-        //this.router.post(this.path, this.createPost);
-        this.router.post(this.path, validationMiddleware(CreatePostDto), this.createPost);
+
+        // this.router.patch(`${this.path}/:id`, validationMiddleware(CreatePostDto, true), this.modifyPost);
+        // this.router.delete(`${this.path}/:id`, this.deletePost);
+        // this.router.post(this.path, validationMiddleware(CreatePostDto), this.createPost);
+        this.router
+        .all(`${this.path}/*`, authMiddleware)
+        .patch(`${this.path}/:id`, validationMiddleware(CreatePostDto, true), this.modifyPost)
+        .delete(`${this.path}/:id`, this.deletePost)
+        .post(`${this.path}`, authMiddleware, validationMiddleware(CreatePostDto), this.createPost);
     }
 
     private getAllPosts = (req:express.Request, res:express.Response) => {
@@ -64,13 +69,20 @@ class PostsController {
         });
     }
 
-    private createPost = (req:express.Request, res:express.Response) => {
-        const postData: Post = req.body;
-        const createdPost = new postModel(postData);
-        createdPost.save()
-        .then(savedPost => {
-            res.send(savedPost);
+    private createPost = async (req:RequestWithUser, res:express.Response) => {
+        const postData: CreatePostDto = req.body;
+        //const createdPost = new postModel(postData);
+        const createPost = new this.post({
+            ...postData, 
+            authorId: req.user._id
         });
+
+        // createdPost.save()
+        // .then(savedPost => {
+        //     res.send(savedPost);
+        // });
+        const savedPost = await createPost.save();
+        res.send(savedPost);
     }
 
     private deletePost = (req: express.Request, res: express.Response, next: express.NextFunction) => {
