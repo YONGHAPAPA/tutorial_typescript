@@ -1,8 +1,8 @@
 import {IsString} from 'class-validator';
 
 class CreatePostDto {
-    @IsString()
-    public authorId: string;
+    // @IsString()
+    // public authorId: string;
 
     @IsString()
     public content: string;

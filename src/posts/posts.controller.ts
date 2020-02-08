@@ -40,69 +40,54 @@ class PostsController {
         });
     }
 
-    private getPostById = (req:express.Request, res:express.Response, next: express.NextFunction) => {
+    private getPostById = async (req:express.Request, res:express.Response, next: express.NextFunction) => {
         const id = req.params.id;
-        this.post.findById(id)
-        .then(post => {
-            if(post){
-                res.send(post);
-            } else {
-                //res.status(404).send({ error: 'Post not found' });
-                //next(new HttpException(404, 'Post not found'));
-                next(new PostNotFoundException(id));
-                //res.send(new HttpException(404, 'Post not found'));
-            }
-        })
+        const post = await this.post.findById(id);
+
+        if(post){
+            res.send(post);
+        } else {
+            next(new PostNotFoundException(id));
+        }
+        
     }
 
-    private modifyPost = (req:express.Request, res:express.Response, next: express.NextFunction) => {
+    private modifyPost = async (req:express.Request, res:express.Response, next: express.NextFunction) => {
         const id = req.params.id;
         const postData: Post = req.body;
-        this.post.findByIdAndUpdate(id, postData, {new: true})
-        .then(post => {
-            //res.send(post);
-            if(post){
-                res.send(post);
-            } else {
-                next(new PostNotFoundException(id))
-            }
-        });
+        const post = await this.post.findByIdAndUpdate(id, postData, {new: true});
+
+        if(post){
+            res.send(post);
+        } else {
+            next(new PostNotFoundException(id));
+        }
     }
 
     private createPost = async (req:RequestWithUser, res:express.Response) => {
-
-        console.log("createPost >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
         const postData: CreatePostDto = req.body;
         //const createdPost = new postModel(postData);
 
-        console.log("req.user._id >>>>>>>>>>>> " + req.user._id);
-
-        
         const createPost = new this.post({
             ...postData, 
-            authorId: req.user._id
+            author: req.user._id
         });
 
-        // createdPost.save()
-        // .then(savedPost => {
-        //     res.send(savedPost);
-        // });
         const savedPost = await createPost.save();
+        await savedPost.populate('author', '-password').execPopulate();
         res.send(savedPost);
     }
 
-    private deletePost = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    private deletePost = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const id = req.params.id;
 
-        this.post.findByIdAndDelete(id)
-        .then(result => {
-            if(result){
-                res.send(200);
-            } else {
-                //res.send(404);
-                next(new PostNotFoundException(id));
-            }
-        })
+        const successResponse = await this.post.findByIdAndDelete(id);
+
+        if(successResponse){
+            res.send(200);
+        } else {
+            next(new PostNotFoundException(id));
+        }
     }
 }
 

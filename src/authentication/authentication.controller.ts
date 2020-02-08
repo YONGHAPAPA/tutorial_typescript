@@ -26,6 +26,7 @@ class AuthenticationController implements Controller {
     private initializeRoutes(){
         this.router.post(`${this.path}/register`, validationMiddleware(CreateUserDto), this.registration);
         this.router.post(`${this.path}/login`, validationMiddleware(LogInDto), this.LoggingIn);
+        this.router.post(`${this.path}/logout`, this.loggingOut);
     }
 
     private registration = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -48,14 +49,15 @@ class AuthenticationController implements Controller {
         const logInData: LogInDto = req.body;
         const user = await this.user.findOne({email: logInData.email});
 
-        if(user){
-            let isPasswordMatching = false;
-            await bcrypt.compare(logInData.password, user.password, (error, result) => {
-                isPasswordMatching = result;
-            });
+        console.log(user);
 
+        if(user){
+            const isPasswordMatching = await bcrypt.compare(logInData.password, user.password);
+            
             if(isPasswordMatching){
                 user.password = undefined;
+                const tokenData = this.createToken(user);
+                res.setHeader('Set-Cookie', [this.createCookie(tokenData)]);
                 res.send(user);
             } else {
                 next(new WrongCredentialsException());
@@ -63,7 +65,11 @@ class AuthenticationController implements Controller {
         } else {
             next(new WrongCredentialsException());
         }
+    }
 
+    private loggingOut = (req: express.Request, res: express.Response) => {
+        res.setHeader('Set-Cookie', ['Authorization=;Max-age=0'])
+        res.send(200);
     }
 
     private createCookie(tokenData: TokenData){
