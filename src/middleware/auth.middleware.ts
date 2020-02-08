@@ -29,6 +29,7 @@ async function authMiddleware(req: RequestWithUser, res: Response, next: NextFun
             const user = await userModel.findById(id);
 
             if(user){
+                
                 req.user = user;
                 next();
             } else {
