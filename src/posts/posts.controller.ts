@@ -70,8 +70,14 @@ class PostsController {
     }
 
     private createPost = async (req:RequestWithUser, res:express.Response) => {
+
+        console.log("createPost >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
         const postData: CreatePostDto = req.body;
         //const createdPost = new postModel(postData);
+
+        console.log("req.user._id >>>>>>>>>>>> " + req.user._id);
+
+        
         const createPost = new this.post({
             ...postData, 
             authorId: req.user._id
