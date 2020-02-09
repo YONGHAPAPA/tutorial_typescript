@@ -12,12 +12,14 @@ import User from '../users/user.interface';
 import userModel from '../users/user.model';
 import LogInDto from './logIn.dto';
 import { IsJWT } from 'class-validator';
+import AuthenticationService from './authentication.service';
 
 class AuthenticationController implements Controller {
 
     public path = '/auth';
     public router = express.Router();
     private user = userModel;
+    private authenticationService = new AuthenticationService();
 
     constructor(){
         this.initializeRoutes();
@@ -32,16 +34,24 @@ class AuthenticationController implements Controller {
     private registration = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const userData: CreateUserDto = req.body;
 
-        if(await this.user.findOne({email: userData.email})){
-            next(new UserWithThatEmailAlreadyExistsException(userData.email));
-        } else {
-            const hashedPassword = await bcrypt.hash(userData.password, 10);
-            const user = await this.user.create({...userData, password: hashedPassword});
-            user.password = undefined;
+        // if(await this.user.findOne({email: userData.email})){
+        //     next(new UserWithThatEmailAlreadyExistsException(userData.email));
+        // } else {
+        //     const hashedPassword = await bcrypt.hash(userData.password, 10);
+        //     const user = await this.user.create({...userData, password: hashedPassword});
+        //     user.password = undefined;
 
-            const tokenData = this.createToken(user);
-            res.setHeader('Set-Cookie', [this.createCookie(tokenData)]);
+        //     const tokenData = this.createToken(user);
+        //     res.setHeader('Set-Cookie', [this.createCookie(tokenData)]);
+        //     res.send(user);
+        // }
+
+        try{
+            const {cookie, user} = await this.authenticationService.register(userData);
+            res.setHeader('Set-Cookie', [cookie]);
             res.send(user);
+        } catch(err){
+            next(err);
         }
     }
 
