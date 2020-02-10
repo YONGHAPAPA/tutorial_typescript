@@ -6,10 +6,13 @@ import DataStoredInToken from '../interfaces/dataStoredInToken';
 import CreateUserDto from '../users/user.dto';
 import User from '../users/user.interface';
 import userModel from '../users/user.model';
+import * as speakeasy from 'speakeasy';
 
 class AuthenticationService {
 
     private user = userModel;
+
+
 
     public async register(userData: CreateUserDto){
 
@@ -44,6 +47,17 @@ class AuthenticationService {
 
     public createCookie(tokenData: TokenData){
         return `Authorization=${tokenData.token}; HttpOnly: Max-Age=${tokenData.expiresIn}`;
+    }
+
+    public getTwoFactorAuthenticationCode(){
+        const secretCode = speakeasy.generateSecret({
+            name: process.env.TWO_FACTOR_AUTHENTICATION_APP_NAME,
+        });
+
+        return {
+            otpauthUrl: secretCode.otpauth_url, 
+            base32: secretCode.base32,
+        }
     }
 }
 

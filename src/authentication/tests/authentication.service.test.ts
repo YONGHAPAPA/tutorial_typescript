@@ -1,17 +1,25 @@
 import TokenData from '../../interfaces/tokenData.interface';
 import AuthenticationService from '../authentication.service';
+import CreateUserDto from 'users/user.dto';
+import UserWithThatEmailAlreadyExistsException from '../../exceptions/UserWithThatEmailAlreadyExistsException';
 
 describe('The AuthenticationService', () => {
-    const authenticationService = new AuthenticationService();
+    describe('When registering a user', () => {
 
-    describe('When creating a cookie', () => {
-        const tokenData: TokenData = {
-            token: '', 
-            expiresIn: 1,
-        };
+        describe('if the email is alreay taken', () => {
+            it('should throw an error', async() => {
+                const userData: CreateUserDto = {
+                    name: 'min soo', 
+                    email: 'test@hotmail.com', 
+                    password: '1234',
+                };
 
-        it('should return a string', () => {
-            expect(typeof authenticationService.createCookie(tokenData)).toEqual('string');
+                Promise.resolve(userData);
+
+                const authenticationService = new AuthenticationService();
+                await expect(authenticationService.register(userData))
+                .rejects.toMatchObject(new UserWithThatEmailAlreadyExistsException(userData.email));
+            })
         })
     })
 })
