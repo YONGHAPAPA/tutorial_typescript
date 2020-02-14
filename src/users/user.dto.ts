@@ -1,4 +1,4 @@
-import {IsOptional, IsString, ValidateNested} from 'class-validator';
+import {IsOptional, IsString, ValidateNested, IsBoolean} from 'class-validator';
 import CreateAddressDto from './address.dto'
 
 class CreateUserDto {
@@ -10,6 +10,12 @@ class CreateUserDto {
 
     @IsString()
     public password: string;
+
+    @IsString()
+    public twoFactorAuthenticationCode: string;
+
+    @IsBoolean()
+    public isTwoFactorAuthenticationEnabled: boolean;
 
     @IsOptional()
     @ValidateNested()

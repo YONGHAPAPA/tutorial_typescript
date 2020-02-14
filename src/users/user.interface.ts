@@ -6,7 +6,9 @@ interface User {
     address?:{
         street: string;
         city: string;
-    }
+    };
+    twoFactorAuthenticationCode: string,
+    isTwoFactorAuthenticationEnabled: boolean,
 }
 
 export default User;

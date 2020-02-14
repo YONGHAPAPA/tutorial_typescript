@@ -13,6 +13,9 @@ import userModel from '../users/user.model';
 import LogInDto from './logIn.dto';
 import { IsJWT } from 'class-validator';
 import AuthenticationService from './authentication.service';
+import RequestWithUser from '../interfaces/requestWithUser.interface';
+import * as speakeasy from 'speakeasy';
+import authMiddleware from '../middleware/auth.middleware';
 
 class AuthenticationController implements Controller {
 
@@ -29,22 +32,12 @@ class AuthenticationController implements Controller {
         this.router.post(`${this.path}/register`, validationMiddleware(CreateUserDto), this.registration);
         this.router.post(`${this.path}/login`, validationMiddleware(LogInDto), this.LoggingIn);
         this.router.post(`${this.path}/logout`, this.loggingOut);
+        this.router.post(`${this.path}/2fa/generate`, authMiddleware, this.getTwoFactorAuthenticationCode);
+        this.router.post(`${this.path}/2fa/turn-on`, authMiddleware, this.turnOnTwoFactorAuthentication);
     }
 
     private registration = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const userData: CreateUserDto = req.body;
-
-        // if(await this.user.findOne({email: userData.email})){
-        //     next(new UserWithThatEmailAlreadyExistsException(userData.email));
-        // } else {
-        //     const hashedPassword = await bcrypt.hash(userData.password, 10);
-        //     const user = await this.user.create({...userData, password: hashedPassword});
-        //     user.password = undefined;
-
-        //     const tokenData = this.createToken(user);
-        //     res.setHeader('Set-Cookie', [this.createCookie(tokenData)]);
-        //     res.send(user);
-        // }
 
         try{
             const {cookie, user} = await this.authenticationService.register(userData);
@@ -57,23 +50,13 @@ class AuthenticationController implements Controller {
 
     private LoggingIn = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const logInData: LogInDto = req.body;
-        const user = await this.user.findOne({email: logInData.email});
 
-        console.log(user);
-
-        if(user){
-            const isPasswordMatching = await bcrypt.compare(logInData.password, user.password);
-            
-            if(isPasswordMatching){
-                user.password = undefined;
-                const tokenData = this.createToken(user);
-                res.setHeader('Set-Cookie', [this.createCookie(tokenData)]);
-                res.send(user);
-            } else {
-                next(new WrongCredentialsException());
-            }
-        } else {
-            next(new WrongCredentialsException());
+        try{
+            const {cookie, user} = await this.authenticationService.Login(logInData);
+            res.setHeader('Set-Cookie', [cookie]);
+            res.send(user);
+        } catch(err){
+            next(err);
         }
     }
 
@@ -82,22 +65,49 @@ class AuthenticationController implements Controller {
         res.send(200);
     }
 
-    private createCookie(tokenData: TokenData){
-        return `Authorization=${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn}; path=/`;
+
+    private getTwoFactorAuthenticationCode = async (
+        req: RequestWithUser, 
+        res: express.Response        
+        ) => {
+        const user = req.user;
+        const {
+            otpauthUrl, 
+            base32,
+        } = this.authenticationService.getTwoFactorAuthenticationCode();
+
+        await this.user.findByIdAndUpdate(user._id, {twoFactorAuthenticationCode: base32,});
+        this.authenticationService.responseWithQRCode(otpauthUrl, res);
     }
 
-    private createToken(user: User): TokenData {
-        const expiresIn = 60 * 60;
-        const secret = process.env.JWT_SECRET;
-        const dataStoredInToken: DataStoredInToken = {
-            _id: user._id,
-        };
+    private turnOnTwoFactorAuthentication = async (
+        req: RequestWithUser, 
+        res: express.Response, 
+        next: express.NextFunction
+    ) => {
+        const {twoFactorAuthenticationCode} = req.body;
+        const user = req.user;
+        const isCodeValid = await this.authenticationService.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
 
-        return {
-            expiresIn, 
-            token: jwt.sign(dataStoredInToken, secret, {expiresIn}),
+        if(isCodeValid){
+            await this.user.findByIdAndUpdate(user._id, {isTwoFactorAuthenticationEnabled: true})
+            res.send(200);
         }
     }
+
+
+    /* privte secondFactorAuthentication = async (req: RequestWithUser, res: express.Response, next: express.NextFunction) => {
+        const {twoFactorAuthenticationCode} = req.body;
+        const user = req.user;
+
+        const isCodeValid = await this.authenticationService.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
+
+        if(isCodeValid){
+            const tokenData = this.authenticationService.createToken(user);
+            
+        }
+    } */
+
 }
 
 export default AuthenticationController;

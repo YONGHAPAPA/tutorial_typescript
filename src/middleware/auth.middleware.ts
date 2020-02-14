@@ -13,7 +13,6 @@ async function authMiddleware(req: RequestWithUser, res: Response, next: NextFun
     const cookies = req.cookies;
 
     console.log("cookies > " + cookies.Authorization);
-    //console.log("cookies.Authorization > " + cookies.Authorization);
 
     if(cookies && cookies.Authorization){
         const secret = process.env.JWT_SECRET;
@@ -23,7 +22,7 @@ async function authMiddleware(req: RequestWithUser, res: Response, next: NextFun
             const verificationResponse = jwt.verify(cookies.Authorization, secret) as DataStoredInToken;
             const id = verificationResponse._id;
 
-            console.log("id > " + id);
+            console.log("id : " + id);
 
             const user = await userModel.findById(id);
 

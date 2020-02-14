@@ -12,8 +12,25 @@ const userSchema = new mongoose.Schema({
     email: String, 
     password: String,
     address: addressSchema,
+    twoFactorAuthenticationCode: String,
+    isTwoFactorAuthenticationEnabled: Boolean,
 });
 
 const userModel = mongoose.model<User & mongoose.Document>('User', userSchema);
 
 export default userModel;
+
+/* 
+{
+	"name":"kimminsoo",
+	"email":"test@hotmail.com",
+	"password":"test",
+	"address":{
+		"city":"pusan", 
+		"country":"korea", 
+		"street":"sanbonchunro"
+	}, 
+	"twoFactorAuthenticationCode": "", 
+	"isTwoFactorAuthenticationEnabled": false
+}
+ */
