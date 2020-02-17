@@ -8,6 +8,7 @@ import DataStoredInToken from '../interfaces/dataStoredInToken';
 import TokenData from '../interfaces/tokenData.interface';
 import validationMiddleware from '../middleware/validation.middleware';
 import CreateUserDto from '../users/user.dto';
+import TwoFactorAuthenticationDto from './TwoFactorAuthentication.dto';
 import User from '../users/user.interface';
 import userModel from '../users/user.model';
 import LogInDto from './logIn.dto';
@@ -16,6 +17,7 @@ import AuthenticationService from './authentication.service';
 import RequestWithUser from '../interfaces/requestWithUser.interface';
 import * as speakeasy from 'speakeasy';
 import authMiddleware from '../middleware/auth.middleware';
+import WrongAuthenticationTokenException from '../exceptions/AuthenticationTokenMissingException';
 
 class AuthenticationController implements Controller {
 
@@ -32,11 +34,13 @@ class AuthenticationController implements Controller {
         this.router.post(`${this.path}/register`, validationMiddleware(CreateUserDto), this.registration);
         this.router.post(`${this.path}/login`, validationMiddleware(LogInDto), this.LoggingIn);
         this.router.post(`${this.path}/logout`, this.loggingOut);
-        this.router.post(`${this.path}/2fa/generate`, authMiddleware, this.getTwoFactorAuthenticationCode);
-        this.router.post(`${this.path}/2fa/turn-on`, authMiddleware, this.turnOnTwoFactorAuthentication);
+        this.router.post(`${this.path}/2fa/generate`, authMiddleware(), this.generateTwoFactorAuthenticationCode);
+        this.router.post(`${this.path}/2fa/turn-on`, authMiddleware(), this.turnOnTwoFactorAuthentication);
+        this.router.post(`${this.path}/2fa/authenticate`, validationMiddleware(TwoFactorAuthenticationDto), authMiddleware(true), this.secondFactorAuthentication);
     }
 
     private registration = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+       
         const userData: CreateUserDto = req.body;
 
         try{
@@ -54,7 +58,13 @@ class AuthenticationController implements Controller {
         try{
             const {cookie, user} = await this.authenticationService.Login(logInData);
             res.setHeader('Set-Cookie', [cookie]);
-            res.send(user);
+
+            if(user.isTwoFactorAuthenticationEnabled){
+                res.send({isTwoFactorAuthenticationEnabled: true});
+            } else {
+                res.send(user);
+            }
+            
         } catch(err){
             next(err);
         }
@@ -66,7 +76,7 @@ class AuthenticationController implements Controller {
     }
 
 
-    private getTwoFactorAuthenticationCode = async (
+    private generateTwoFactorAuthenticationCode = async (
         req: RequestWithUser, 
         res: express.Response        
         ) => {
@@ -87,27 +97,32 @@ class AuthenticationController implements Controller {
     ) => {
         const {twoFactorAuthenticationCode} = req.body;
         const user = req.user;
-        const isCodeValid = await this.authenticationService.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
 
-        if(isCodeValid){
-            await this.user.findByIdAndUpdate(user._id, {isTwoFactorAuthenticationEnabled: true})
+        //const isCodeValid = await this.authenticationService.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
+        const result = await this.authenticationService.turnOnTwoFactorAuthentication(twoFactorAuthenticationCode, user);
+
+        if(result){
             res.send(200);
+        } else {
+            next(new WrongAuthenticationTokenException());
         }
     }
 
 
-    /* privte secondFactorAuthentication = async (req: RequestWithUser, res: express.Response, next: express.NextFunction) => {
-        const {twoFactorAuthenticationCode} = req.body;
+    private secondFactorAuthentication = async (req: RequestWithUser, res: express.Response, next: express.NextFunction) => {
+        
+        const {twoFactorAuthenticationCode}  = req.body;
         const user = req.user;
 
-        const isCodeValid = await this.authenticationService.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
-
-        if(isCodeValid){
-            const tokenData = this.authenticationService.createToken(user);
-            
+        try{
+            const {cookie} = await this.authenticationService.secondFactorAuthentication(twoFactorAuthenticationCode, user);
+            res.setHeader('Set-Cookie', [cookie]);
+            //res.send({...user.toObject(), password: undefined, twoFactorAuthenticationCode: undefined});
+            res.send({...user, password: undefined, twoFactorAuthenticationCode: undefined});
+        } catch(err){
+            next(err);
         }
-    } */
-
+    }
 }
 
 export default AuthenticationController;

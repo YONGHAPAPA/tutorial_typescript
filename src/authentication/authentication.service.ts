@@ -1,8 +1,9 @@
 import * as bcrypt from 'bcryptjs';
-import {Response} from 'express';
+import {Response, response} from 'express';
 import * as jwt from 'jsonwebtoken';
 import UserWithThatEmailAlreayExistsExceptoin from '../exceptions/UserWithThatEmailAlreadyExistsException';
 import WrongCredentialsException from '../exceptions/WrongCredentialsException';
+import WrongAuthenticationTokenException from '../exceptions/WrongAuthenticationTokenException';
 import TokenData from '../interfaces/tokenData.interface';
 import DataStoredInToken from '../interfaces/dataStoredInToken';
 import CreateUserDto from '../users/user.dto';
@@ -27,6 +28,7 @@ class AuthenticationService {
 
             if(isPasswordMatching){
                 user.password = undefined;
+                user.twoFactorAuthenticationCode = undefined;
                 const tokenData = this.createToken(user);
                 const cookie = this.createCookie(tokenData);
 
@@ -63,10 +65,6 @@ class AuthenticationService {
             name: process.env.TWO_FACTOR_AUTHENTICATION_APP_NAME,
         });
 
-
-        console.log("secretCode : " + secretCode.otpauth_url);
-        console.log("secretCode : " + secretCode.base32);
-
         return {
             otpauthUrl: secretCode.otpauth_url, 
             base32: secretCode.base32,
@@ -77,10 +75,51 @@ class AuthenticationService {
         QRCode.toFileStream(response, data);
     }
 
-    public createToken(user: User): TokenData {
+    public verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode: string, user: User){
+        return speakeasy.totp.verify({
+            secret: user.twoFactorAuthenticationCode, 
+            encoding: 'base32', 
+            token: twoFactorAuthenticationCode,
+        });
+    }
+
+    public async turnOnTwoFactorAuthentication(twoFactorAuthenticationCode: string, user: User){
+        const isCodeValid = await this.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
+
+        if(isCodeValid){
+            await this.user.findByIdAndUpdate(user._id, {
+                isTwoFactorAuthenticationEnabled: true,
+            });
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public async secondFactorAuthentication(twoFactorAuthenticationCode: string, user: User){
+
+        //console.log("secondFactorAuthentication > " + twoFactorAuthenticationCode);
+        const isCodeValid = await this.verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode, user);
+
+        if(isCodeValid){
+            const tokenData = this.createToken(user, true);
+            const cookie = this.createCookie(tokenData);
+
+            return {
+                cookie,
+            }
+        } else {
+            throw new WrongAuthenticationTokenException();
+        }
+
+    }
+
+    public createToken(user: User, isSecondFactorAuthenticated = false): TokenData {
         const expiresIn = 60 * 60;
         const secret = process.env.JWT_SECRET;
         const dataStoredInToken: DataStoredInToken = {
+            isSecondFactorAuthenticated,
             _id: user._id, 
         }
 
@@ -92,15 +131,6 @@ class AuthenticationService {
 
     public createCookie(tokenData: TokenData){
         return `Authorization=${tokenData.token}; HttpOnly: Max-Age=${tokenData.expiresIn}`;
-    }
-
-    public verifyTwoFactorAuthenticationCode(twoFactorAuthenticationCode: string, user: User){
-
-        return speakeasy.totp.verify({
-            secret: user.twoFactorAuthenticationCode, 
-            encoding: 'base32', 
-            token: twoFactorAuthenticationCode,
-        });
     }
 }
 

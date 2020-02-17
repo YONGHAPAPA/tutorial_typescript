@@ -1,4 +1,4 @@
-import {NextFunction, Response} from 'express';
+import {NextFunction, Response, RequestHandler} from 'express';
 import * as jwt from 'jsonwebtoken';
 import AuthenticationTokenMissingException from '../exceptions/AuthenticationTokenMissingException';
 import DataStoredinToken from '../interfaces/dataStoredInToken';
@@ -6,38 +6,39 @@ import RequestWithUser from '../interfaces/requestWithUser.interface'
 import userModel from '../users/user.model';
 import WrongCredentialsException from '../exceptions/WrongCredentialsException';
 import DataStoredInToken from '../interfaces/dataStoredInToken';
+import WrongAuthenticationTokenException from '../exceptions/WrongAuthenticationTokenException';
 
-async function authMiddleware(req: RequestWithUser, res: Response, next: NextFunction){
+function authMiddleware(omitSecondFactor = false) : RequestHandler {
+    return async (req: RequestWithUser, res: Response, next: NextFunction) => {
+        const cookies = req.cookies;
 
-    console.log("authMiddleware >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    const cookies = req.cookies;
+        if(cookies && cookies.Authorization){
+            const secret = process.env.JWT_SECRET;
 
-    console.log("cookies > " + cookies.Authorization);
+            try{
+                const verificationResponse = jwt.verify(cookies.Authorization, secret) as DataStoredInToken;
+                const {_id: id, isSecondFactorAuthenticated} = verificationResponse;
 
-    if(cookies && cookies.Authorization){
-        const secret = process.env.JWT_SECRET;
-        //console.log("secret > " + secret);
+                const user = await userModel.findById(id);
 
-        try{
-            const verificationResponse = jwt.verify(cookies.Authorization, secret) as DataStoredInToken;
-            const id = verificationResponse._id;
-
-            console.log("id : " + id);
-
-            const user = await userModel.findById(id);
-
-            if(user){
-                req.user = user;
-                next();
-            } else {
-                next(new WrongCredentialsException());
+                if(user){
+                    if(!omitSecondFactor && user.isTwoFactorAuthenticationEnabled && !isSecondFactorAuthenticated){
+                        next(new WrongAuthenticationTokenException());
+                    } else {
+                        req.user = user;
+                        next();
+                    }
+                } else {
+                    next(new WrongAuthenticationTokenException());
+                }
+            } catch(err){
+                next(new WrongAuthenticationTokenException())
             }
-        } catch(err){
-            next(new WrongCredentialsException())
+        } else {
+            next(new AuthenticationTokenMissingException());
         }
-    } else {
-        next(new WrongCredentialsException());
     }
 }
+
 
 export default authMiddleware;
